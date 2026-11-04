@@ -4,7 +4,6 @@ import { reverseGeocode, calculateDistanceMeters } from './utils/geo';
 import { soundManager } from './utils/audio';
 import { captureStampedPhoto } from './utils/photoCapture';
 import { CanvasVideoRecorder } from './utils/recorder';
-import { SimulatedCameraStream } from './utils/simulatedCamera';
 import { CameraViewfinder } from './components/CameraViewfinder';
 import { CameraControls } from './components/CameraControls';
 import { StampSettingsModal } from './components/StampSettingsModal';
@@ -37,7 +36,6 @@ export default function App() {
 
   // Active camera stream & recorder instances
   const streamRef = useRef<MediaStream | null>(null);
-  const simStreamRef = useRef<SimulatedCameraStream | null>(null);
   const recorderRef = useRef<CanvasVideoRecorder | null>(null);
   const wakeLockRef = useRef<unknown>(null);
 
@@ -47,7 +45,6 @@ export default function App() {
   // Camera hardware state
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
-  const [isSimulatedCamera, setIsSimulatedCamera] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [isTorchSupported, setIsTorchSupported] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
@@ -278,32 +275,12 @@ export default function App() {
     };
   }, []);
 
-  // Initialize camera stream (Physical smartphone camera or fallback to simulated)
-  const initCamera = useCallback(async (facing: 'environment' | 'user', forceSimulated: boolean = false) => {
+  // Initialize camera stream (Physical smartphone camera)
+  const initCamera = useCallback(async (facing: 'environment' | 'user') => {
     // Stop existing stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-    }
-    if (simStreamRef.current) {
-      simStreamRef.current.stop();
-      simStreamRef.current = null;
-    }
-
-    if (forceSimulated) {
-      // Create simulated camera stream
-      const sim = new SimulatedCameraStream(1280, 720);
-      const stream = sim.start();
-      simStreamRef.current = sim;
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setIsSimulatedCamera(true);
-      setIsTorchSupported(false);
-      setTorchEnabled(false);
-      showToast('เปิดโหมดจำลองกล้อง (Simulated Camera)', 'info');
-      return;
     }
 
     try {
@@ -334,7 +311,6 @@ export default function App() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      setIsSimulatedCamera(false);
 
       // Check torch capability on smartphones
       const videoTrack = stream.getVideoTracks()[0];
@@ -343,21 +319,17 @@ export default function App() {
         setIsTorchSupported(Boolean(capabilities?.torch));
       }
     } catch (err) {
-      console.warn('Physical camera unavailable, activating simulated camera:', err);
-      // Auto fallback to simulated camera so user never gets stuck
-      initCamera(facing, true);
+      console.warn('Physical camera access error:', err);
+      showToast('กรุณาอนุญาตการเข้าถึงกล้องในเบราว์เซอร์ เพื่อใช้งานกล้องถ่ายภาพ', 'error');
     }
   }, []);
 
   // Run camera initialization on mount
   useEffect(() => {
-    initCamera(facingMode, false);
+    initCamera(facingMode);
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      if (simStreamRef.current) {
-        simStreamRef.current.stop();
       }
     };
   }, [facingMode, initCamera]);
@@ -367,13 +339,7 @@ export default function App() {
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(nextFacing);
     setZoomLevel(1); // Reset zoom on camera switch
-    initCamera(nextFacing, isSimulatedCamera);
-  };
-
-  // Toggle Simulated Camera
-  const handleToggleSimulatedCamera = () => {
-    const nextSim = !isSimulatedCamera;
-    initCamera(facingMode, nextSim);
+    initCamera(nextFacing);
   };
 
   // Torch / Flashlight toggle
@@ -625,8 +591,6 @@ export default function App() {
           galleryCount={mediaList.length}
           lastMediaThumbnail={lastThumbnail}
           gpsAccuracy={stampData.accuracy}
-          isSimulatedCamera={isSimulatedCamera}
-          onToggleSimulatedCamera={handleToggleSimulatedCamera}
           currentProject={stampData.project}
           poleId={stampData.poleId}
         />

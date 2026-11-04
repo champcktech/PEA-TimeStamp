@@ -37,8 +37,6 @@ interface CameraControlsProps {
   galleryCount: number;
   lastMediaThumbnail: string | null;
   gpsAccuracy: number | null;
-  isSimulatedCamera: boolean;
-  onToggleSimulatedCamera: () => void;
   currentProject: string;
   poleId?: string;
 }
@@ -66,8 +64,6 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   galleryCount,
   lastMediaThumbnail,
   gpsAccuracy,
-  isSimulatedCamera,
-  onToggleSimulatedCamera,
   currentProject,
   poleId,
 }) => {
