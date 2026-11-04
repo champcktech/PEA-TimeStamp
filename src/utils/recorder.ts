@@ -35,6 +35,10 @@ export class CanvasVideoRecorder {
     this.ctx = context;
   }
 
+  public setZoomLevel(z: number): void {
+    this.zoomLevel = Math.max(1, z);
+  }
+
   /**
    * Start recording with live stamped canvas stream
    */

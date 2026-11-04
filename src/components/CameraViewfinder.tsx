@@ -16,6 +16,7 @@ interface CameraViewfinderProps {
   zoomLevel: number;
   setZoomLevel: (z: number | ((prev: number) => number)) => void;
   orientationAngle: number;
+  hardwareZoomApplied?: boolean;
 }
 
 export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
@@ -30,9 +31,21 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
   zoomLevel,
   setZoomLevel,
   orientationAngle,
+  hardwareZoomApplied = false,
 }) => {
   const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
+  const [isZooming, setIsZooming] = useState(false);
   const touchDistanceRef = useRef<number | null>(null);
+  const zoomFadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
+
+  const triggerZoomHUD = () => {
+    setIsZooming(true);
+    if (zoomFadeTimeoutRef.current) clearTimeout(zoomFadeTimeoutRef.current);
+    zoomFadeTimeoutRef.current = setTimeout(() => {
+      setIsZooming(false);
+    }, 1200);
+  };
 
   const handleTapToFocus = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -46,12 +59,27 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
     }, 1500);
   };
 
+  // Double tap to toggle 1x and 2x zoom, or single tap to focus
+  const handleClickOrTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 280) {
+      // Double-tap detected: toggle zoom 1x / 2x
+      setZoomLevel((prev) => (prev > 1.2 ? 1 : 2));
+      triggerZoomHUD();
+      lastTapTimeRef.current = 0;
+      return;
+    }
+    lastTapTimeRef.current = now;
+    handleTapToFocus(e);
+  };
+
   // Smartphone Pinch-to-Zoom handlers
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       touchDistanceRef.current = Math.hypot(dx, dy);
+      triggerZoomHUD();
     }
   };
 
@@ -64,9 +92,10 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
       touchDistanceRef.current = newDistance;
 
       setZoomLevel((prev) => {
-        const next = Math.max(1, Math.min(4, prev * (ratio > 1 ? 1.04 : 0.96)));
+        const next = Math.max(1, Math.min(6, prev * (ratio > 1 ? 1.05 : 0.95)));
         return Math.round(next * 10) / 10;
       });
+      triggerZoomHUD();
     }
   };
 
@@ -120,7 +149,7 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
 
   return (
     <div
-      onClick={handleTapToFocus}
+      onClick={handleClickOrTap}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -133,11 +162,21 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
         muted
         autoPlay
         style={{
-          transform: `scale(${zoomLevel}) ${isMirrored ? 'scaleX(-1)' : ''}`,
+          transform: `${!hardwareZoomApplied && zoomLevel > 1 ? `scale(${zoomLevel})` : ''} ${isMirrored ? 'scaleX(-1)' : ''}`,
           transformOrigin: 'center center',
         }}
         className="w-full h-full object-cover transition-transform duration-100 ease-out pointer-events-none"
       />
+
+      {/* Floating HUD Zoom Multiplier Badge on Pinch/Zoom */}
+      {isZooming && (
+        <div className="absolute top-20 z-30 pointer-events-none flex flex-col items-center animate-in fade-in zoom-in-90 duration-150">
+          <div className="px-3.5 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-amber-400/80 shadow-2xl flex items-center gap-1.5 ring-2 ring-amber-400/20">
+            <span className="text-amber-400 font-bold text-[11px] uppercase tracking-wider">ซูม</span>
+            <span className="text-white font-mono-numbers font-black text-sm">{zoomLevel.toFixed(1)}×</span>
+          </div>
+        </div>
+      )}
 
       {/* Shutter White Flash overlay */}
       {isShutterFlashing && (
@@ -158,26 +197,6 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
           <div />
         </div>
       )}
-
-      {/* Smartphone Zoom Presets Floating Pill (1x, 2x, 3x) */}
-      <div className="absolute bottom-24 z-20 flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20 shadow-lg pointer-events-auto">
-        {[1, 2, 3].map((z) => (
-          <button
-            key={z}
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoomLevel(z);
-            }}
-            className={`min-w-[36px] min-h-[36px] w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-              Math.abs(zoomLevel - z) < 0.2
-                ? 'bg-amber-400 text-slate-950 scale-105 shadow'
-                : 'text-white/80 hover:text-white bg-white/10'
-            }`}
-          >
-            {z}×
-          </button>
-        ))}
-      </div>
 
       {/* Center electrical pole surveyor crosshair with vertical plumb alignment line */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 opacity-30">

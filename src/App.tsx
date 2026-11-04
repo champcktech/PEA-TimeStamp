@@ -50,6 +50,8 @@ export default function App() {
   const [showGrid, setShowGrid] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isHardwareZoomSupported, setIsHardwareZoomSupported] = useState(false);
+  const [hardwareZoomApplied, setHardwareZoomApplied] = useState(false);
   const [orientationAngle, setOrientationAngle] = useState<number>(0);
 
   // Video Recording state
@@ -312,15 +314,16 @@ export default function App() {
         videoRef.current.srcObject = stream;
       }
 
-      // Check torch capability on smartphones
+      // Check torch & zoom capabilities on smartphones
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        const capabilities = (videoTrack as unknown as { getCapabilities?: () => { torch?: boolean } }).getCapabilities?.();
+        const capabilities = (videoTrack as unknown as { getCapabilities?: () => { torch?: boolean; zoom?: { min: number; max: number; step: number } } }).getCapabilities?.();
         setIsTorchSupported(Boolean(capabilities?.torch));
+        setIsHardwareZoomSupported(Boolean(capabilities?.zoom));
       }
     } catch (err) {
       console.warn('Physical camera access error:', err);
-      showToast('กรุณาอนุญาตการเข้าถึงกล้องในเบราว์เซอร์ เพื่อใช้งานกล้องถ่ายภาพ', 'error');
+      showToast('กรุณาอนุญาตการเข้าถึงกล้องในเบราวด์เซอร์ เพื่อใช้งานกล้องถ่ายภาพ', 'error');
     }
   }, []);
 
@@ -334,11 +337,48 @@ export default function App() {
     };
   }, [facingMode, initCamera]);
 
+  // Unified Zoom Change handler (handles hardware camera sensor zoom + digital crop fallback)
+  const handleZoomChange = useCallback((newZoom: number | ((prev: number) => number)) => {
+    setZoomLevel((prev) => {
+      const nextVal = typeof newZoom === 'function' ? newZoom(prev) : newZoom;
+      const clamped = Math.max(1, Math.min(6, Math.round(nextVal * 10) / 10));
+
+      // Attempt hardware optical/sensor zoom if supported by mobile browser
+      if (streamRef.current) {
+        const track = streamRef.current.getVideoTracks()[0];
+        if (track) {
+          const caps = (track as unknown as { getCapabilities?: () => { zoom?: { min: number; max: number; step: number } } }).getCapabilities?.();
+          if (caps?.zoom) {
+            const hwMin = caps.zoom.min || 1;
+            const hwMax = caps.zoom.max || 8;
+            const target = Math.max(hwMin, Math.min(hwMax, clamped));
+            (track as unknown as { applyConstraints: (c: unknown) => Promise<void> }).applyConstraints({
+              advanced: [{ zoom: target }],
+            }).then(() => {
+              setHardwareZoomApplied(true);
+            }).catch(() => {
+              setHardwareZoomApplied(false);
+            });
+          } else {
+            setHardwareZoomApplied(false);
+          }
+        }
+      }
+
+      // Update active video recorder zoom
+      if (recorderRef.current) {
+        recorderRef.current.setZoomLevel(hardwareZoomApplied ? 1 : clamped);
+      }
+
+      return clamped;
+    });
+  }, [hardwareZoomApplied]);
+
   // Camera switch (Front / Back)
   const handleSwitchCamera = () => {
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(nextFacing);
-    setZoomLevel(1); // Reset zoom on camera switch
+    handleZoomChange(1); // Reset zoom on camera switch
     initCamera(nextFacing);
   };
 
@@ -403,12 +443,13 @@ export default function App() {
 
     try {
       const isMirrored = facingMode === 'user';
+      const effectiveZoom = hardwareZoomApplied ? 1 : zoomLevel;
       const captured = await captureStampedPhoto(
         videoRef.current,
         stampData,
         stampSettings,
         isMirrored,
-        zoomLevel
+        effectiveZoom
       );
 
       setMediaList((prev) => [captured, ...prev]);
@@ -436,8 +477,9 @@ export default function App() {
 
       const audioTrack = streamRef.current?.getAudioTracks()[0] || null;
       const isMirrored = facingMode === 'user';
+      const effectiveZoom = hardwareZoomApplied ? 1 : zoomLevel;
 
-      const recorder = new CanvasVideoRecorder(videoRef.current, audioTrack, isMirrored, zoomLevel);
+      const recorder = new CanvasVideoRecorder(videoRef.current, audioTrack, isMirrored, effectiveZoom);
       recorderRef.current = recorder;
 
       setRecordDurationSec(0);
@@ -563,8 +605,9 @@ export default function App() {
           recordDurationSec={recordDurationSec}
           isShutterFlashing={isShutterFlashing}
           zoomLevel={zoomLevel}
-          setZoomLevel={setZoomLevel}
+          setZoomLevel={handleZoomChange}
           orientationAngle={orientationAngle}
+          hardwareZoomApplied={hardwareZoomApplied}
         />
 
         {/* Camera Controls Layer (Thumb Ergonomics) */}
@@ -593,6 +636,8 @@ export default function App() {
           gpsAccuracy={stampData.accuracy}
           currentProject={stampData.project}
           poleId={stampData.poleId}
+          zoomLevel={zoomLevel}
+          setZoomLevel={handleZoomChange}
         />
       </main>
 

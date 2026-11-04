@@ -12,6 +12,8 @@ import {
   Play,
   Square,
   Sparkles,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 interface CameraControlsProps {
@@ -39,6 +41,8 @@ interface CameraControlsProps {
   gpsAccuracy: number | null;
   currentProject: string;
   poleId?: string;
+  zoomLevel: number;
+  setZoomLevel: (z: number | ((prev: number) => number)) => void;
 }
 
 export const CameraControls: React.FC<CameraControlsProps> = ({
@@ -66,6 +70,8 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   gpsAccuracy,
   currentProject,
   poleId,
+  zoomLevel,
+  setZoomLevel,
 }) => {
   const formatTimer = (sec: number) => {
     const mins = Math.floor(sec / 60);
@@ -165,8 +171,68 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         style={{
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
         }}
-        className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pt-2 px-4 bg-gradient-to-t from-black via-black/85 to-transparent"
+        className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pt-2 px-4 bg-gradient-to-t from-black via-black/85 to-transparent select-none"
       >
+        {/* Smartphone Zoom Presets Bar (Always visible & tap-able above shutter/modes) */}
+        <div className="flex items-center gap-1 mb-2 px-2.5 py-1 bg-black/65 backdrop-blur-md rounded-full border border-white/20 shadow-xl pointer-events-auto">
+          {/* Zoom Out Button (-0.2x) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomLevel((prev) => Math.max(1, Math.round((prev - 0.2) * 10) / 10));
+            }}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all text-xs"
+            title="ลดระยะซูม (-0.2x)"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Quick Zoom Presets: 1x, 2x, 3x, 5x */}
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 5].map((z) => {
+              const isActive = Math.abs(zoomLevel - z) < 0.15;
+              return (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomLevel(z);
+                  }}
+                  className={`min-w-[36px] h-8 px-2 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-amber-400 text-slate-950 shadow-md scale-105 font-extrabold ring-1 ring-amber-300'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                  title={`ซูม ${z} เท่า`}
+                >
+                  {z}×
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Current non-preset zoom indicator (e.g. 1.4x, 2.6x) */}
+          {![1, 2, 3, 5].some((z) => Math.abs(zoomLevel - z) < 0.15) && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-extrabold font-mono-numbers shadow-sm animate-in fade-in">
+              {zoomLevel.toFixed(1)}×
+            </span>
+          )}
+
+          {/* Zoom In Button (+0.2x) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomLevel((prev) => Math.min(6, Math.round((prev + 0.2) * 10) / 10));
+            }}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all text-xs"
+            title="เพิ่มระยะซูม (+0.2x)"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
         {/* Mode Selector Tabs (Photo vs Video) */}
         {!isRecording && (
           <div className="flex items-center gap-1 mb-3.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/15 shadow-lg">
