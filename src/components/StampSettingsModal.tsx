@@ -294,22 +294,43 @@ export const StampSettingsModal: React.FC<StampSettingsModalProps> = ({
           {/* Section 6: Sliders for Opacity & Scale */}
           <div className="space-y-3 pt-2 border-t border-slate-800">
             <div>
-              <div className="flex justify-between text-xs text-slate-300 mb-1">
-                <span className="flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-amber-400" />
-                  ขนาดตราประทับ
+              <div className="flex justify-between text-xs text-slate-300 mb-1.5">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Type className="w-4 h-4 text-amber-400" />
+                  ขนาดตัวหนังสือและตราประทับ
                 </span>
-                <span className="font-mono-numbers">{Math.round(settings.fontSizeScale * 100)}%</span>
+                <span className="font-mono-numbers font-bold text-amber-400">{Math.round(settings.fontSizeScale * 100)}%</span>
               </div>
               <input
                 type="range"
                 min="0.75"
-                max="1.35"
+                max="1.75"
                 step="0.05"
                 value={settings.fontSizeScale}
                 onChange={(e) => setSettings((s) => ({ ...s, fontSizeScale: parseFloat(e.target.value) }))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
               />
+              <div className="flex items-center gap-2 mt-2">
+                {[
+                  { label: 'ปกติ (100%)', val: 1.0 },
+                  { label: 'ใหญ่ (125%)', val: 1.25 },
+                  { label: 'ใหญ่พิเศษ (150%)', val: 1.5 },
+                  { label: 'จัมโบ้ (175%)', val: 1.75 },
+                ].map((preset) => (
+                  <button
+                    key={preset.val}
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, fontSizeScale: preset.val }))}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] font-medium transition-colors border ${
+                      Math.abs(settings.fontSizeScale - preset.val) < 0.03
+                        ? 'bg-amber-500 text-slate-950 font-bold border-amber-500 shadow-sm'
+                        : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>

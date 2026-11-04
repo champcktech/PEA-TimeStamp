@@ -75,8 +75,11 @@ export function drawTimestampOverlay(
 ) {
   ctx.save();
 
-  // Baseline scale relative to standard 1080p canvas width
-  const baseScale = Math.max(0.65, Math.min(2.5, width / 1080)) * settings.fontSizeScale;
+  // Baseline scale relative to standard 1080p canvas short dimension (minDim)
+  // Ensures consistent relative size whether portrait (1080x1920) or landscape (1920x1080)
+  // and properly scales up for 4K / 12MP (3000x4000) smartphone photos without artificial small caps
+  const minDim = Math.min(width, height);
+  const baseScale = Math.max(0.45, minDim / 1080) * (settings.fontSizeScale || 1.0);
   const dt = formatStampDateTime(data.timestamp, settings.dateStyle);
   const coordStr = formatCoordinates(data.latitude, data.longitude, settings.coordFormat);
   const accent = settings.accentColor || '#FFB800';
@@ -129,11 +132,11 @@ function drawThaiTimeMarkTemplate(
   dt: { timeHM: string; dateFormatted: string; dayShort: string },
   accent: string
 ) {
-  const margin = 28 * scale;
-  const timeSize = Math.round(52 * scale);
-  const dateSize = Math.round(18 * scale);
-  const addrSize = Math.round(20 * scale);
-  const coordSize = Math.round(18 * scale);
+  const margin = Math.round(44 * scale);
+  const timeSize = Math.round(116 * scale);
+  const dateSize = Math.round(36 * scale);
+  const addrSize = Math.round(34 * scale);
+  const coordSize = Math.round(30 * scale);
 
   // Parse Address into two clean lines if needed (road/subdistrict/district on line 1, postcode on line 2)
   let addrLine1 = data.address || 'ตำบล สันทราย อำเภอ ฝาง เชียงใหม่';
@@ -165,118 +168,134 @@ function drawThaiTimeMarkTemplate(
     : '';
 
   // Measure coordinate box dimensions
-  ctx.font = `500 ${coordSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
+  ctx.font = `600 ${coordSize}px 'Prompt', 'JetBrains Mono', sans-serif`;
   let maxTextW = Math.max(ctx.measureText(coordLine1).width, ctx.measureText(coordLine2).width);
   if (hasElectricalTag) {
-    ctx.font = `600 ${coordSize * 0.92}px 'Prompt', sans-serif`;
+    ctx.font = `700 ${Math.round(coordSize * 0.94)}px 'Prompt', sans-serif`;
     maxTextW = Math.max(maxTextW, ctx.measureText(electricalLine).width);
   }
 
-  const boxPadX = 14 * scale;
-  const boxPadY = 12 * scale;
-  const boxWidth = Math.min(width * 0.9, maxTextW + boxPadX * 2 + 10 * scale);
-  const linesCount = hasElectricalTag ? 3.35 : 2.3;
-  const boxHeight = coordSize * linesCount + boxPadY * 2;
+  const boxPadX = Math.round(24 * scale);
+  const boxPadY = Math.round(20 * scale);
+  const boxWidth = Math.min(width - margin * 2, maxTextW + boxPadX * 2 + Math.round(16 * scale));
+  const linesCount = hasElectricalTag ? 3.4 : 2.35;
+  const boxHeight = Math.round(coordSize * linesCount + boxPadY * 2);
 
-  // Calculate total stamp height
-  const timeHeight = timeSize * 0.95;
-  const addrLineHeight = addrSize * 1.35;
+  // Calculate layout heights
+  const timeHeight = timeSize * 0.85;
+  const addrLineHeight = addrSize * 1.38;
   const totalAddressHeight = addrLine2 ? addrLineHeight * 2 : addrLineHeight;
-  const gap1 = 16 * scale; // gap between time and address
-  const gap2 = 14 * scale; // gap between address and coord box
+  const gap1 = Math.round(26 * scale); // gap between time and address
+  const gap2 = Math.round(24 * scale); // gap between address and coord box
   const totalHeight = timeHeight + gap1 + totalAddressHeight + gap2 + boxHeight;
 
-  // Position calculation (Default: Bottom-Left)
-  let posX = margin;
-  let posY = height - totalHeight - margin;
+  // Position calculation
+  let startX = margin;
+  let startY = Math.max(20 * scale, height - totalHeight - margin);
 
   if (settings.position === 'bottom-right') {
-    posX = width - boxWidth - margin;
-    posY = height - totalHeight - margin;
+    startX = width - boxWidth - margin;
+    startY = Math.max(20 * scale, height - totalHeight - margin);
   } else if (settings.position === 'top-left') {
-    posX = margin;
-    posY = margin + timeHeight;
+    startX = margin;
+    startY = margin;
   } else if (settings.position === 'top-right') {
-    posX = width - boxWidth - margin;
-    posY = margin + timeHeight;
+    startX = width - boxWidth - margin;
+    startY = margin;
+  } else if (settings.position === 'bottom-full') {
+    startX = margin;
+    startY = Math.max(20 * scale, height - totalHeight - margin);
   }
 
-  let curY = posY;
-
   // --- 1. Top Section: Big Time + Yellow Bar + Date/Day ---
-  // A. Time: "18:12"
-  ctx.font = `700 ${timeSize}px 'Plus Jakarta Sans', 'Prompt', sans-serif`;
+  // Baseline for Time
+  const timeBaseline = startY + timeSize * 0.82;
+
+  ctx.font = `700 ${timeSize}px 'Oswald', 'Plus Jakarta Sans', 'Prompt', sans-serif`;
   ctx.fillStyle = '#FFFFFF';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-  ctx.shadowBlur = 6 * scale;
-  ctx.fillText(dt.timeHM, posX, curY);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+  ctx.shadowBlur = Math.round(8 * scale);
+  ctx.shadowOffsetX = Math.round(1 * scale);
+  ctx.shadowOffsetY = Math.round(2 * scale);
+  ctx.fillText(dt.timeHM, startX, timeBaseline);
 
   const timeWidth = ctx.measureText(dt.timeHM).width;
 
-  // B. Yellow Vertical Divider Bar: "|"
-  const barX = posX + timeWidth + 14 * scale;
-  const barY = curY - timeSize * 0.65;
-  const barHeight = timeSize * 0.68;
-  const barWidth = 3.5 * scale;
+  // Yellow Vertical Divider Bar: "|"
+  const barX = startX + timeWidth + Math.round(18 * scale);
+  const barHeight = Math.round(timeSize * 0.72);
+  const barY = timeBaseline - barHeight + Math.round(4 * scale);
+  const barWidth = Math.max(4, Math.round(7 * scale));
 
   ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
   ctx.fillStyle = accent; // Yellow '#FFB800'
-  roundRect(ctx, barX, barY, barWidth, barHeight, 2 * scale);
+  roundRect(ctx, barX, barY, barWidth, barHeight, Math.round(3.5 * scale));
   ctx.fill();
 
-  // C. Date & Day: "04 พ.ย. 2569" and "พ."
-  const dateX = barX + barWidth + 12 * scale;
-  ctx.shadowBlur = 5 * scale;
-  ctx.font = `500 ${dateSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(dt.dateFormatted, dateX, barY + dateSize * 0.85);
+  // Date & Day: "04 พ.ย. 2569" and "พ."
+  const dateX = barX + barWidth + Math.round(16 * scale);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+  ctx.shadowBlur = Math.round(7 * scale);
+  ctx.shadowOffsetX = 1 * scale;
+  ctx.shadowOffsetY = 2 * scale;
 
   ctx.font = `600 ${dateSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(dt.dayShort, dateX, barY + dateSize * 0.85 + dateSize * 1.3);
+  ctx.fillText(dt.dateFormatted, dateX, barY + dateSize * 0.82);
 
-  curY += gap1 + timeSize * 0.35;
+  ctx.font = `700 ${dateSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
+  ctx.fillText(dt.dayShort, dateX, barY + dateSize * 0.82 + dateSize * 1.32);
 
   // --- 2. Middle Section: Address Lines ---
-  ctx.shadowBlur = 5 * scale;
-  ctx.font = `500 ${addrSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
+  let curY = startY + timeHeight + gap1;
+
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+  ctx.shadowBlur = Math.round(7 * scale);
+  ctx.shadowOffsetX = 1 * scale;
+  ctx.shadowOffsetY = 2 * scale;
+  ctx.font = `600 ${addrSize}px 'Prompt', 'Plus Jakarta Sans', sans-serif`;
   ctx.fillStyle = '#FFFFFF';
-  truncateDrawText(ctx, addrLine1, posX, curY, width * 0.88);
+
+  truncateDrawText(ctx, addrLine1, startX, curY + addrSize * 0.85, width - margin * 2);
   curY += addrLineHeight;
 
   if (addrLine2) {
-    ctx.fillText(addrLine2, posX, curY);
+    ctx.fillText(addrLine2, startX, curY + addrSize * 0.85);
     curY += addrLineHeight;
   }
 
-  curY += gap2 - addrLineHeight * 0.3;
-
   // --- 3. Bottom Section: Translucent Coordinates & Electrical Box ---
+  const boxY = curY + gap2 - addrLineHeight * 0.35;
+
   // Draw translucent rounded glass box
   ctx.shadowBlur = 0;
-  ctx.fillStyle = `rgba(15, 23, 42, ${settings.opacity * 0.58})`;
-  roundRect(ctx, posX, curY, boxWidth, boxHeight, 12 * scale);
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = `rgba(15, 23, 42, ${Math.min(0.9, settings.opacity * 0.65)})`;
+  roundRect(ctx, startX, boxY, boxWidth, boxHeight, Math.round(16 * scale));
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-  ctx.lineWidth = 1 * scale;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = Math.max(1.5, Math.round(2 * scale));
   ctx.stroke();
 
   // Draw Coordinates text inside box
-  const textX = posX + boxPadX;
-  const textY1 = curY + boxPadY + coordSize * 0.85;
-  const textY2 = textY1 + coordSize * 1.3;
+  const textX = startX + boxPadX;
+  const textY1 = boxY + boxPadY + coordSize * 0.88;
+  const textY2 = textY1 + Math.round(coordSize * 1.36);
 
-  ctx.font = `500 ${coordSize}px 'Prompt', 'JetBrains Mono', sans-serif`;
-  ctx.fillStyle = '#E2E8F0';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-  ctx.shadowBlur = 3 * scale;
+  ctx.font = `600 ${coordSize}px 'Prompt', 'JetBrains Mono', sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = Math.round(4 * scale);
   ctx.fillText(coordLine1, textX, textY1);
   ctx.fillText(coordLine2, textX, textY2);
 
   if (hasElectricalTag) {
-    const textY3 = textY2 + coordSize * 1.35;
-    ctx.font = `600 ${Math.round(coordSize * 0.92)}px 'Prompt', sans-serif`;
+    const textY3 = textY2 + Math.round(coordSize * 1.36);
+    ctx.font = `700 ${Math.round(coordSize * 0.94)}px 'Prompt', sans-serif`;
     ctx.fillStyle = '#FDE047'; // Electric yellow highlight
     truncateDrawText(ctx, electricalLine, textX, textY3, boxWidth - boxPadX * 2);
   }
@@ -300,40 +319,39 @@ function drawSurveyTemplate(
   headingStr: string,
   accuracyStr: string
 ) {
-  const pad = 14 * scale;
-  const boxWidth = Math.min(width * 0.9, 640 * scale);
-  const boxHeight = 160 * scale;
+  const pad = Math.round(20 * scale);
+  const boxWidth = Math.min(width * 0.94, Math.round(960 * scale));
+  const boxHeight = Math.round(230 * scale);
   const boxX = (width - boxWidth) / 2;
-  const boxY = height - boxHeight - 24 * scale;
+  const boxY = height - boxHeight - Math.round(36 * scale);
 
   // Outer border & background
-  ctx.fillStyle = `rgba(10, 15, 28, ${settings.opacity * 0.9})`;
-  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 8 * scale);
+  ctx.fillStyle = `rgba(10, 15, 28, ${settings.opacity * 0.92})`;
+  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, Math.round(12 * scale));
   ctx.fill();
 
   ctx.strokeStyle = accent;
-  ctx.lineWidth = 2 * scale;
+  ctx.lineWidth = Math.max(2, Math.round(3 * scale));
   ctx.stroke();
 
   // Top header banner
   ctx.fillStyle = accent;
-  ctx.fillRect(boxX, boxY, boxWidth, 26 * scale);
+  ctx.fillRect(boxX, boxY, boxWidth, Math.round(38 * scale));
 
-  ctx.font = `700 ${14 * scale}px 'Prompt', sans-serif`;
+  ctx.font = `700 ${Math.round(20 * scale)}px 'Prompt', sans-serif`;
   ctx.fillStyle = '#0F172A';
-  ctx.fillText('📋 บันทึกการตรวจงานภาคสนาม (FIELD INSPECTION RECORD)', boxX + 12 * scale, boxY + 18 * scale);
+  ctx.fillText('📋 บันทึกการตรวจงานภาคสนาม (FIELD INSPECTION RECORD)', boxX + Math.round(18 * scale), boxY + Math.round(26 * scale));
 
   // Two-column grid inside
   const col1X = boxX + pad;
   const col2X = boxX + boxWidth * 0.52;
-  const row1Y = boxY + 48 * scale;
-  const row2Y = boxY + 74 * scale;
-  const row3Y = boxY + 100 * scale;
-  const row4Y = boxY + 126 * scale;
-  const row5Y = boxY + 148 * scale;
+  const row1Y = boxY + Math.round(70 * scale);
+  const row2Y = boxY + Math.round(108 * scale);
+  const row3Y = boxY + Math.round(146 * scale);
+  const row4Y = boxY + Math.round(184 * scale);
 
-  const labelFont = `500 ${12 * scale}px 'Prompt', sans-serif`;
-  const valFont = `600 ${13 * scale}px 'Prompt', 'JetBrains Mono', sans-serif`;
+  const labelFont = `600 ${Math.round(18 * scale)}px 'Prompt', sans-serif`;
+  const valFont = `700 ${Math.round(19 * scale)}px 'Prompt', 'JetBrains Mono', sans-serif`;
 
   // Col 1: Date/Time & Coordinates
   ctx.font = labelFont;
@@ -341,21 +359,21 @@ function drawSurveyTemplate(
   ctx.fillText('วัน-เวลา:', col1X, row1Y);
   ctx.font = valFont;
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(`${dateStr}  ${timeStr}`, col1X + 55 * scale, row1Y);
+  ctx.fillText(`${dateStr}  ${timeStr}`, col1X + Math.round(85 * scale), row1Y);
 
   ctx.font = labelFont;
   ctx.fillStyle = '#94A3B8';
   ctx.fillText('พิกัด GPS:', col1X, row2Y);
   ctx.font = valFont;
   ctx.fillStyle = accent;
-  ctx.fillText(coordStr, col1X + 55 * scale, row2Y);
+  ctx.fillText(coordStr, col1X + Math.round(85 * scale), row2Y);
 
   ctx.font = labelFont;
   ctx.fillStyle = '#94A3B8';
   ctx.fillText('ความแม่นยำ:', col1X, row3Y);
   ctx.font = valFont;
   ctx.fillStyle = '#E2E8F0';
-  ctx.fillText(`${accuracyStr || 'N/A'} | ระดับความสูง: ${elevationStr || 'N/A'}`, col1X + 68 * scale, row3Y);
+  ctx.fillText(`${accuracyStr || 'N/A'} | ระดับความสูง: ${elevationStr || 'N/A'}`, col1X + Math.round(105 * scale), row3Y);
 
   // Col 2: Project & Inspector
   ctx.font = labelFont;
@@ -363,14 +381,14 @@ function drawSurveyTemplate(
   ctx.fillText('โครงการ:', col2X, row1Y);
   ctx.font = valFont;
   ctx.fillStyle = '#FDE047';
-  truncateDrawText(ctx, data.project || 'งานตรวจภาคสนามทั่วไป', col2X + 50 * scale, row1Y, boxWidth * 0.42);
+  truncateDrawText(ctx, data.project || 'งานสำรวจระบบไฟฟ้า', col2X + Math.round(75 * scale), row1Y, boxWidth * 0.42);
 
   ctx.font = labelFont;
   ctx.fillStyle = '#94A3B8';
   ctx.fillText('ผู้ตรวจ:', col2X, row2Y);
   ctx.font = valFont;
   ctx.fillStyle = '#FFFFFF';
-  truncateDrawText(ctx, data.inspector || 'เจ้าหน้าที่ประจำไซต์', col2X + 50 * scale, row2Y, boxWidth * 0.42);
+  truncateDrawText(ctx, data.inspector || 'เจ้าหน้าที่ประจำไซต์', col2X + Math.round(75 * scale), row2Y, boxWidth * 0.42);
 
   if (headingStr) {
     ctx.font = labelFont;
@@ -378,7 +396,7 @@ function drawSurveyTemplate(
     ctx.fillText('ทิศทาง:', col2X, row3Y);
     ctx.font = valFont;
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(headingStr, col2X + 50 * scale, row3Y);
+    ctx.fillText(headingStr, col2X + Math.round(75 * scale), row3Y);
   }
 
   // Bottom row: Address
@@ -386,9 +404,9 @@ function drawSurveyTemplate(
     ctx.font = labelFont;
     ctx.fillStyle = '#94A3B8';
     ctx.fillText('สถานที่:', col1X, row4Y);
-    ctx.font = `500 ${12 * scale}px 'Prompt', sans-serif`;
+    ctx.font = `600 ${Math.round(18 * scale)}px 'Prompt', sans-serif`;
     ctx.fillStyle = '#E2E8F0';
-    truncateDrawText(ctx, data.address, col1X + 55 * scale, row4Y, boxWidth - 80 * scale);
+    truncateDrawText(ctx, data.address, col1X + Math.round(85 * scale), row4Y, boxWidth - Math.round(110 * scale));
   }
 }
 
@@ -408,45 +426,45 @@ function drawSecurityTemplate(
   accent: string,
   accuracyStr: string
 ) {
-  const pad = 14 * scale;
-  const boxWidth = Math.min(width * 0.88, 540 * scale);
-  const boxHeight = 110 * scale;
-  const boxX = 20 * scale;
-  const boxY = height - boxHeight - 24 * scale;
+  const pad = Math.round(20 * scale);
+  const boxWidth = Math.min(width * 0.92, Math.round(820 * scale));
+  const boxHeight = Math.round(170 * scale);
+  const boxX = Math.round(36 * scale);
+  const boxY = height - boxHeight - Math.round(36 * scale);
 
   // Background
-  ctx.fillStyle = `rgba(15, 23, 42, ${settings.opacity * 0.88})`;
-  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 10 * scale);
+  ctx.fillStyle = `rgba(15, 23, 42, ${settings.opacity * 0.9})`;
+  roundRect(ctx, boxX, boxY, boxWidth, boxHeight, Math.round(14 * scale));
   ctx.fill();
 
   ctx.strokeStyle = '#22C55E';
-  ctx.lineWidth = 1.5 * scale;
+  ctx.lineWidth = Math.max(2, Math.round(2.5 * scale));
   ctx.stroke();
 
   // Watermark seal badge
-  ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
-  roundRect(ctx, boxX + pad, boxY + pad, 120 * scale, 24 * scale, 4 * scale);
+  ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+  roundRect(ctx, boxX + pad, boxY + pad, Math.round(170 * scale), Math.round(32 * scale), Math.round(6 * scale));
   ctx.fill();
 
-  ctx.font = `700 ${11 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(15 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#22C55E';
-  ctx.fillText('VERIFIED PROOF', boxX + pad + 10 * scale, boxY + pad + 16 * scale);
+  ctx.fillText('VERIFIED PROOF', boxX + pad + Math.round(14 * scale), boxY + pad + Math.round(22 * scale));
 
   // Time & Date
-  ctx.font = `700 ${22 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(32 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(`${timeStr}  ${dateStr}`, boxX + pad, boxY + pad + 52 * scale);
+  ctx.fillText(`${timeStr}  ${dateStr}`, boxX + pad, boxY + pad + Math.round(72 * scale));
 
   // GPS Coordinates
-  ctx.font = `600 ${14 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `600 ${Math.round(22 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = accent;
-  ctx.fillText(`${coordStr}  ${accuracyStr}`, boxX + pad, boxY + pad + 72 * scale);
+  ctx.fillText(`${coordStr}  ${accuracyStr}`, boxX + pad, boxY + pad + Math.round(102 * scale));
 
   // Address
   if (data.address) {
-    ctx.font = `500 ${12 * scale}px 'Prompt', sans-serif`;
+    ctx.font = `600 ${Math.round(19 * scale)}px 'Prompt', sans-serif`;
     ctx.fillStyle = '#CBD5E1';
-    truncateDrawText(ctx, data.address, boxX + pad, boxY + pad + 90 * scale, boxWidth - pad * 2);
+    truncateDrawText(ctx, data.address, boxX + pad, boxY + pad + Math.round(130 * scale), boxWidth - pad * 2);
   }
 }
 
@@ -465,24 +483,24 @@ function drawMinimalTemplate(
   coordStr: string,
   accent: string
 ) {
-  const margin = 20 * scale;
+  const margin = Math.round(36 * scale);
   const x = margin;
   const y = height - margin;
 
-  ctx.font = `700 ${18 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(32 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#FFFFFF';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = 6 * scale;
-  ctx.fillText(`${timeStr} · ${dateStr}`, x, y - 24 * scale);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+  ctx.shadowBlur = Math.round(8 * scale);
+  ctx.fillText(`${timeStr} · ${dateStr}`, x, y - Math.round(42 * scale));
 
-  ctx.font = `600 ${14 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(24 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = accent;
-  ctx.fillText(coordStr, x, y);
+  ctx.fillText(coordStr, x, y - Math.round(10 * scale));
 
   if (data.address) {
-    ctx.font = `500 ${13 * scale}px 'Prompt', sans-serif`;
+    ctx.font = `600 ${Math.round(20 * scale)}px 'Prompt', sans-serif`;
     ctx.fillStyle = '#E2E8F0';
-    truncateDrawText(ctx, data.address, x, y + 20 * scale, width * 0.85);
+    truncateDrawText(ctx, data.address, x, y + Math.round(24 * scale), width * 0.88);
   }
 }
 
@@ -503,19 +521,19 @@ function drawHudTemplate(
   elevationStr: string,
   headingStr: string
 ) {
-  const pad = 16 * scale;
-  const boxWidth = Math.min(width * 0.9, 580 * scale);
-  const boxHeight = 110 * scale;
-  const boxX = 24 * scale;
-  const boxY = height - boxHeight - 24 * scale;
+  const pad = Math.round(24 * scale);
+  const boxWidth = Math.min(width * 0.94, Math.round(880 * scale));
+  const boxHeight = Math.round(170 * scale);
+  const boxX = Math.round(36 * scale);
+  const boxY = height - boxHeight - Math.round(36 * scale);
 
-  ctx.fillStyle = `rgba(6, 12, 24, ${settings.opacity * 0.85})`;
+  ctx.fillStyle = `rgba(6, 12, 24, ${settings.opacity * 0.88})`;
   ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
 
   // HUD Corner Brackets
   ctx.strokeStyle = accent;
-  ctx.lineWidth = 2 * scale;
-  const cornerLen = 14 * scale;
+  ctx.lineWidth = Math.max(2, Math.round(3 * scale));
+  const cornerLen = Math.round(22 * scale);
 
   // Top-left bracket
   ctx.beginPath();
@@ -546,26 +564,26 @@ function drawHudTemplate(
   ctx.stroke();
 
   // Data text
-  ctx.font = `700 ${22 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(34 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#38BDF8';
-  ctx.fillText(timeStr, boxX + pad, boxY + 32 * scale);
+  ctx.fillText(timeStr, boxX + pad, boxY + Math.round(48 * scale));
 
-  ctx.font = `600 ${14 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `700 ${Math.round(22 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#F8FAFC';
-  ctx.fillText(dateStr, boxX + pad + 150 * scale, boxY + 32 * scale);
+  ctx.fillText(dateStr, boxX + pad + Math.round(220 * scale), boxY + Math.round(48 * scale));
 
-  ctx.font = `600 ${14 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `600 ${Math.round(22 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = accent;
-  ctx.fillText(`GEO: ${coordStr}`, boxX + pad, boxY + 60 * scale);
+  ctx.fillText(`GEO: ${coordStr}`, boxX + pad, boxY + Math.round(88 * scale));
 
-  ctx.font = `500 ${12 * scale}px 'JetBrains Mono', monospace`;
+  ctx.font = `600 ${Math.round(18 * scale)}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = '#94A3B8';
-  ctx.fillText(`ALT: ${elevationStr || '0m'} | HDG: ${headingStr || '0°'} | SYS: GPS-ACTIVE`, boxX + pad, boxY + 82 * scale);
+  ctx.fillText(`ALT: ${elevationStr || '0m'} | HDG: ${headingStr || '0°'} | SYS: GPS-ACTIVE`, boxX + pad, boxY + Math.round(122 * scale));
 
   if (data.address) {
-    ctx.font = `500 ${12 * scale}px 'Prompt', sans-serif`;
+    ctx.font = `600 ${Math.round(18 * scale)}px 'Prompt', sans-serif`;
     ctx.fillStyle = '#CBD5E1';
-    truncateDrawText(ctx, `LOC: ${data.address}`, boxX + pad, boxY + 100 * scale, boxWidth - pad * 2);
+    truncateDrawText(ctx, `LOC: ${data.address}`, boxX + pad, boxY + Math.round(150 * scale), boxWidth - pad * 2);
   }
 }
 

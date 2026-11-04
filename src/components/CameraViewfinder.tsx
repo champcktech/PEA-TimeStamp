@@ -95,6 +95,23 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
     }
   };
 
+  // Transform origin based on position so scaling behaves naturally
+  const getTransformOrigin = () => {
+    switch (stampSettings.position) {
+      case 'bottom-right':
+        return 'bottom right';
+      case 'top-left':
+        return 'top left';
+      case 'top-right':
+        return 'top right';
+      case 'bottom-full':
+        return 'bottom center';
+      case 'bottom-left':
+      default:
+        return 'bottom left';
+    }
+  };
+
   const formatTimer = (sec: number) => {
     const mins = Math.floor(sec / 60);
     const secs = sec % 60;
@@ -197,31 +214,38 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
 
       {/* Live On-Screen Stamp Preview (Shows user exactly what is being stamped) */}
       <div
-        className={`absolute z-20 pointer-events-none transition-all duration-200 ${getPositionClasses()}`}
-        style={{ maxWidth: stampSettings.position === 'bottom-full' ? '100%' : '90%' }}
+        className={`absolute z-20 pointer-events-none transition-all duration-150 ${getPositionClasses()}`}
+        style={{
+          maxWidth: stampSettings.position === 'bottom-full' ? '100%' : '90%',
+          transform: `scale(${stampSettings.fontSizeScale || 1})`,
+          transformOrigin: getTransformOrigin(),
+        }}
       >
         {stampSettings.template === 'classic' ? (
           /* Thai Official TimeMark Layout (Identical to user's uploaded reference image) */
           <div className="flex flex-col select-none">
             {/* Top row: 18:12 | 04 พ.ย. 2569 \n พ. */}
             <div className="flex items-center gap-2.5">
-              <span className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_5px_rgba(0,0,0,0.9)] font-mono-numbers">
+              <span
+                className="text-5xl sm:text-6xl font-bold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                style={{ fontFamily: "'Oswald', 'Plus Jakarta Sans', sans-serif" }}
+              >
                 {formatStampDateTime(stampData.timestamp, stampSettings.dateStyle).timeHM}
               </span>
               {/* Yellow vertical bar */}
               <div
-                className="w-1 self-stretch rounded-full my-1 shadow-sm shrink-0"
+                className="w-1.5 self-stretch rounded-full my-1 shadow-sm shrink-0"
                 style={{ backgroundColor: stampSettings.accentColor }}
               />
               {/* Date & Day abbreviation */}
-              <div className="flex flex-col text-white text-xs sm:text-sm font-medium drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] leading-tight">
+              <div className="flex flex-col text-white text-xs sm:text-sm font-semibold drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)] leading-tight">
                 <span>{formatStampDateTime(stampData.timestamp, stampSettings.dateStyle).dateFormatted}</span>
-                <span className="font-semibold">{formatStampDateTime(stampData.timestamp, stampSettings.dateStyle).dayShort}</span>
+                <span className="font-bold">{formatStampDateTime(stampData.timestamp, stampSettings.dateStyle).dayShort}</span>
               </div>
             </div>
 
             {/* Middle row: Address lines */}
-            <div className="mt-2 text-white text-xs sm:text-sm font-medium drop-shadow-[0_2px_5px_rgba(0,0,0,0.95)] leading-relaxed">
+            <div className="mt-2 text-white text-xs sm:text-sm font-semibold drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)] leading-relaxed">
               {(() => {
                 const fullAddr = stampData.address || 'ตำบล สันทราย อำเภอ ฝาง เชียงใหม่ 50110';
                 const match = fullAddr.match(/\b\d{5}\b/);
@@ -241,15 +265,15 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
             {/* Bottom row: Translucent Coordinates Box */}
             <div
               style={{
-                backgroundColor: `rgba(15, 23, 42, ${stampSettings.opacity * 0.58})`,
+                backgroundColor: `rgba(15, 23, 42, ${Math.min(0.9, stampSettings.opacity * 0.65)})`,
               }}
-              className="mt-2 px-3 py-2 rounded-xl border border-white/12 backdrop-blur-sm inline-block shadow-xl max-w-fit"
+              className="mt-2.5 px-3.5 py-2.5 rounded-2xl border border-white/20 backdrop-blur-sm inline-block shadow-2xl max-w-fit"
             >
-              <div className="text-[11px] sm:text-xs text-slate-100 font-mono-numbers leading-snug">
+              <div className="text-xs sm:text-sm text-slate-100 font-mono-numbers font-medium leading-snug">
                 <div>ละติจูดและลองจิจูด: {stampData.latitude !== null ? stampData.latitude.toFixed(6) : '19.891025'},</div>
                 <div>{stampData.longitude !== null ? stampData.longitude.toFixed(6) : '99.223338'}</div>
                 {stampSettings.showElectricalTag && (stampData.poleId || stampData.surveyType || stampData.voltageLevel) && (
-                  <div className="text-amber-300 font-semibold mt-1 pt-1 border-t border-white/10 text-[10px] sm:text-[11px] truncate flex items-center gap-1">
+                  <div className="text-amber-300 font-bold mt-1.5 pt-1.5 border-t border-white/15 text-[11px] sm:text-xs truncate flex items-center gap-1.5">
                     <span>⚡</span>
                     <span>
                       {[stampData.surveyType || 'งานสำรวจระบบไฟฟ้า', stampData.poleId ? `เสา ${stampData.poleId}` : '', stampData.voltageLevel].filter(Boolean).join(' · ')}
