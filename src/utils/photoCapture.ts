@@ -1,6 +1,6 @@
 import { CapturedMedia, StampData, StampSettings } from '../types/camera';
 import { formatDateForFileName } from './recorder';
-import { drawTimestampOverlay } from './stampRenderer';
+import { drawTimestampOverlay, loadPeaLogo } from './stampRenderer';
 
 /**
  * Capture a high-resolution photo from the live video feed
@@ -41,6 +41,13 @@ export async function captureStampedPhoto(
     ctx.restore();
   } else {
     ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, width, height);
+  }
+
+  // Ensure PEA logo is ready in memory
+  try {
+    await loadPeaLogo();
+  } catch (e) {
+    console.warn('PEA logo load error:', e);
   }
 
   // Stamp current exact timestamp & GPS metadata directly on image

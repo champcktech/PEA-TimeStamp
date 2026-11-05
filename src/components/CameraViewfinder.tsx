@@ -236,13 +236,32 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
         className={`absolute z-20 pointer-events-none transition-all duration-150 ${getPositionClasses()}`}
         style={{
           maxWidth: stampSettings.position === 'bottom-full' ? '100%' : '90%',
-          transform: `scale(${stampSettings.fontSizeScale || 1})`,
+          transform: `scale(${stampSettings.fontSizeScale ?? 1.25})`,
           transformOrigin: getTransformOrigin(),
         }}
       >
         {stampSettings.template === 'classic' ? (
           /* Thai Official TimeMark Layout (Identical to user's uploaded reference image) */
           <div className="flex flex-col select-none">
+            {/* PEA Official Logo & Title Header */}
+            {stampSettings.showLogo && (
+              <div className="flex items-center gap-2 mb-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
+                <img
+                  src="/pea-logo.png"
+                  alt="PEA Logo"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-amber-400 shadow-md object-cover bg-purple-900"
+                />
+                <div className="flex flex-col text-left leading-tight">
+                  <span className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                    การไฟฟ้าส่วนภูมิภาค
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-amber-300 font-semibold tracking-wider font-mono-numbers">
+                    PROVINCIAL ELECTRICITY AUTHORITY
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Top row: 18:12 | 04 พ.ย. 2569 \n พ. */}
             <div className="flex items-center gap-2.5">
               <span
@@ -295,7 +314,7 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
                   <div className="text-amber-300 font-bold mt-1.5 pt-1.5 border-t border-white/15 text-[11px] sm:text-xs truncate flex items-center gap-1.5">
                     <span>⚡</span>
                     <span>
-                      {[stampData.surveyType || 'งานสำรวจระบบไฟฟ้า', stampData.poleId ? `เสา ${stampData.poleId}` : '', stampData.voltageLevel].filter(Boolean).join(' · ')}
+                      {[stampData.surveyType || 'แก้ไขไฟฟ้าขัดข้อง', stampData.poleId ? `เสา ${stampData.poleId}` : '', stampData.voltageLevel].filter(Boolean).join(' · ')}
                     </span>
                   </div>
                 )}

@@ -62,6 +62,99 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+let peaLogoImage: HTMLImageElement | null = null;
+let peaLogoLoadingPromise: Promise<HTMLImageElement | null> | null = null;
+
+/**
+ * Preload and cache the official PEA emblem logo for Canvas rendering
+ */
+export function loadPeaLogo(): Promise<HTMLImageElement | null> {
+  if (peaLogoImage && peaLogoImage.complete && peaLogoImage.naturalWidth > 0) {
+    return Promise.resolve(peaLogoImage);
+  }
+  if (peaLogoLoadingPromise) {
+    return peaLogoLoadingPromise;
+  }
+  peaLogoLoadingPromise = new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = '/pea-logo.png';
+    img.onload = () => {
+      peaLogoImage = img;
+      resolve(img);
+    };
+    img.onerror = () => {
+      resolve(null);
+    };
+  });
+  return peaLogoLoadingPromise;
+}
+
+// Preload immediately in browser
+if (typeof window !== 'undefined') {
+  loadPeaLogo();
+}
+
+/**
+ * Draw circular PEA logo with clean boundary clip and golden outer ring
+ */
+function drawCircularPeaLogo(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  size: number
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, x, y, size, size);
+  ctx.restore();
+
+  // Outer gold ring
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(2, size * 0.045);
+  ctx.strokeStyle = '#F2A900';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  ctx.shadowBlur = 4;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Fallback vector badge in case image is loading
+ */
+function drawFallbackPeaEmblem(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#6B1D76'; // PEA Purple
+  ctx.fill();
+  ctx.lineWidth = Math.max(2, size * 0.045);
+  ctx.strokeStyle = '#F2A900'; // PEA Gold
+  ctx.stroke();
+
+  ctx.font = `800 ${Math.round(size * 0.36)}px 'Oswald', sans-serif`;
+  ctx.fillStyle = '#F2A900';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PEA', x + size / 2, y + size / 2);
+  ctx.restore();
+}
+
 /**
  * Core Stamp Drawing Function
  * Renders the chosen TimeMark stamp directly onto any 2D canvas context.
@@ -79,7 +172,7 @@ export function drawTimestampOverlay(
   // Ensures consistent relative size whether portrait (1080x1920) or landscape (1920x1080)
   // and properly scales up for 4K / 12MP (3000x4000) smartphone photos without artificial small caps
   const minDim = Math.min(width, height);
-  const baseScale = Math.max(0.45, minDim / 1080) * (settings.fontSizeScale || 1.0);
+  const baseScale = Math.max(0.45, minDim / 1080) * (settings.fontSizeScale || 1.25);
   const dt = formatStampDateTime(data.timestamp, settings.dateStyle);
   const coordStr = formatCoordinates(data.latitude, data.longitude, settings.coordFormat);
   const accent = settings.accentColor || '#FFB800';
@@ -164,7 +257,7 @@ function drawThaiTimeMarkTemplate(
     settings.showElectricalTag && (data.poleId || data.surveyType || data.voltageLevel)
   );
   const electricalLine = hasElectricalTag
-    ? `⚡ ${[data.surveyType || 'งานสำรวจระบบไฟฟ้า', data.poleId ? `เสา ${data.poleId}` : '', data.voltageLevel].filter(Boolean).join(' · ')}`
+    ? `⚡ ${[data.surveyType || 'แก้ไขไฟฟ้าขัดข้อง', data.poleId ? `เสา ${data.poleId}` : '', data.voltageLevel].filter(Boolean).join(' · ')}`
     : '';
 
   // Measure coordinate box dimensions
@@ -181,13 +274,18 @@ function drawThaiTimeMarkTemplate(
   const linesCount = hasElectricalTag ? 3.4 : 2.35;
   const boxHeight = Math.round(coordSize * linesCount + boxPadY * 2);
 
+  // Logo dimensions
+  const showLogo = Boolean(settings.showLogo);
+  const logoSize = Math.round(52 * scale);
+  const logoBlockHeight = showLogo ? logoSize + Math.round(14 * scale) : 0;
+
   // Calculate layout heights
   const timeHeight = timeSize * 0.85;
   const addrLineHeight = addrSize * 1.38;
   const totalAddressHeight = addrLine2 ? addrLineHeight * 2 : addrLineHeight;
   const gap1 = Math.round(26 * scale); // gap between time and address
   const gap2 = Math.round(24 * scale); // gap between address and coord box
-  const totalHeight = timeHeight + gap1 + totalAddressHeight + gap2 + boxHeight;
+  const totalHeight = logoBlockHeight + timeHeight + gap1 + totalAddressHeight + gap2 + boxHeight;
 
   // Position calculation
   let startX = margin;
@@ -207,9 +305,36 @@ function drawThaiTimeMarkTemplate(
     startY = Math.max(20 * scale, height - totalHeight - margin);
   }
 
+  let curY = startY;
+
+  // --- 0. Brand Header: Official PEA Circular Logo & Name ---
+  if (showLogo) {
+    if (peaLogoImage && peaLogoImage.complete && peaLogoImage.naturalWidth > 0) {
+      drawCircularPeaLogo(ctx, peaLogoImage, startX, curY, logoSize);
+    } else {
+      drawFallbackPeaEmblem(ctx, startX, curY, logoSize);
+    }
+
+    const brandTextX = startX + logoSize + Math.round(14 * scale);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+    ctx.shadowBlur = Math.round(6 * scale);
+    ctx.shadowOffsetX = Math.round(1 * scale);
+    ctx.shadowOffsetY = Math.round(2 * scale);
+
+    ctx.font = `700 ${Math.round(22 * scale)}px 'Prompt', sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('การไฟฟ้าส่วนภูมิภาค', brandTextX, curY + Math.round(22 * scale));
+
+    ctx.font = `700 ${Math.round(12 * scale)}px 'Plus Jakarta Sans', sans-serif`;
+    ctx.fillStyle = accent;
+    ctx.fillText('PROVINCIAL ELECTRICITY AUTHORITY', brandTextX, curY + Math.round(42 * scale));
+
+    curY += logoBlockHeight;
+  }
+
   // --- 1. Top Section: Big Time + Yellow Bar + Date/Day ---
   // Baseline for Time
-  const timeBaseline = startY + timeSize * 0.82;
+  const timeBaseline = curY + timeSize * 0.82;
 
   ctx.font = `700 ${timeSize}px 'Oswald', 'Plus Jakarta Sans', 'Prompt', sans-serif`;
   ctx.fillStyle = '#FFFFFF';
@@ -249,7 +374,7 @@ function drawThaiTimeMarkTemplate(
   ctx.fillText(dt.dayShort, dateX, barY + dateSize * 0.82 + dateSize * 1.32);
 
   // --- 2. Middle Section: Address Lines ---
-  let curY = startY + timeHeight + gap1;
+  curY += timeHeight + gap1;
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.92)';
   ctx.shadowBlur = Math.round(7 * scale);
@@ -338,9 +463,20 @@ function drawSurveyTemplate(
   ctx.fillStyle = accent;
   ctx.fillRect(boxX, boxY, boxWidth, Math.round(38 * scale));
 
+  let bannerTextX = boxX + Math.round(18 * scale);
+  if (settings.showLogo) {
+    const badgeSize = Math.round(28 * scale);
+    if (peaLogoImage && peaLogoImage.complete && peaLogoImage.naturalWidth > 0) {
+      drawCircularPeaLogo(ctx, peaLogoImage, boxX + Math.round(10 * scale), boxY + Math.round(5 * scale), badgeSize);
+    } else {
+      drawFallbackPeaEmblem(ctx, boxX + Math.round(10 * scale), boxY + Math.round(5 * scale), badgeSize);
+    }
+    bannerTextX = boxX + badgeSize + Math.round(18 * scale);
+  }
+
   ctx.font = `700 ${Math.round(20 * scale)}px 'Prompt', sans-serif`;
   ctx.fillStyle = '#0F172A';
-  ctx.fillText('📋 บันทึกการตรวจงานภาคสนาม (FIELD INSPECTION RECORD)', boxX + Math.round(18 * scale), boxY + Math.round(26 * scale));
+  ctx.fillText('📋 การไฟฟ้าส่วนภูมิภาค - ตรวจงานภาคสนาม (PEA FIELD RECORD)', bannerTextX, boxY + Math.round(26 * scale));
 
   // Two-column grid inside
   const col1X = boxX + pad;

@@ -88,8 +88,17 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         }}
         className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-3 pb-2 bg-gradient-to-b from-black/90 via-black/50 to-transparent"
       >
-        {/* Left slot: Electrical Survey Tag & GPS Accuracy badge */}
+        {/* Left slot: PEA Emblem, Electrical Survey Tag & GPS Accuracy badge */}
         <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-950/80 border border-purple-500/50 shadow-sm">
+            <img
+              src="/pea-logo.png"
+              alt="PEA Logo"
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-amber-400"
+            />
+            <span className="text-[11px] font-bold text-white tracking-tight">PEA</span>
+          </div>
+
           {/* Electrical Survey Pro badge & Active Pole ID */}
           <button
             onClick={onOpenQuickNotes}

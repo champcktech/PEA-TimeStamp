@@ -269,14 +269,17 @@ export const StampSettingsModal: React.FC<StampSettingsModalProps> = ({
                 <span>โครงการ / หมายเหตุหน้างาน</span>
               </label>
 
-              <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 cursor-pointer min-h-[44px]">
+              <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/40 text-purple-200 cursor-pointer min-h-[44px]">
                 <input
                   type="checkbox"
                   checked={settings.showLogo}
                   onChange={(e) => setSettings((s) => ({ ...s, showLogo: e.target.checked }))}
                   className="w-4 h-4 rounded text-amber-500 focus:ring-0"
                 />
-                <span>ลายน้ำข้อความแบรนด์</span>
+                <div className="flex items-center gap-2">
+                  <img src="/pea-logo.png" alt="PEA Logo" className="w-5 h-5 rounded-full object-cover ring-1 ring-amber-400" />
+                  <span className="font-semibold text-white">โลโก้ การไฟฟ้าส่วนภูมิภาค (PEA)</span>
+                </div>
               </label>
 
               <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold cursor-pointer min-h-[44px]">
@@ -312,8 +315,8 @@ export const StampSettingsModal: React.FC<StampSettingsModalProps> = ({
               />
               <div className="flex items-center gap-2 mt-2">
                 {[
-                  { label: 'ปกติ (100%)', val: 1.0 },
-                  { label: 'ใหญ่ (125%)', val: 1.25 },
+                  { label: 'กะทัดรัด (100%)', val: 1.0 },
+                  { label: 'เริ่มต้น (125%)', val: 1.25 },
                   { label: 'ใหญ่พิเศษ (150%)', val: 1.5 },
                   { label: 'จัมโบ้ (175%)', val: 1.75 },
                 ].map((preset) => (

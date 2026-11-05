@@ -16,8 +16,8 @@ const DEFAULT_STAMP_SETTINGS: StampSettings = {
   position: 'bottom-left',
   dateStyle: 'thai',
   coordFormat: 'decimal',
-  showLogo: false,
-  logoText: '',
+  showLogo: true,
+  logoText: 'การไฟฟ้าส่วนภูมิภาค',
   showAddress: true,
   showCoords: true,
   showDateTime: true,
@@ -27,7 +27,7 @@ const DEFAULT_STAMP_SETTINGS: StampSettings = {
   showElectricalTag: true,
   accentColor: '#FFB800',
   opacity: 0.88,
-  fontSizeScale: 1.0,
+  fontSizeScale: 1.25,
 };
 
 export default function App() {
@@ -78,7 +78,7 @@ export default function App() {
     inspector: 'ช่างสำรวจ กฟภ.',
     poleId: 'PEA-01',
     voltageLevel: '22 kV',
-    surveyType: 'สำรวจแนวเสาและสายไฟ',
+    surveyType: 'แก้ไขไฟฟ้าขัดข้อง',
   });
 
   // Stamp Customization Settings
@@ -452,12 +452,29 @@ export default function App() {
         effectiveZoom
       );
 
+      // Automatically save image file directly to device storage
+      try {
+        const link = document.createElement('a');
+        link.href = captured.url;
+        link.download = captured.fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+        }, 300);
+      } catch (saveErr) {
+        console.warn('Auto save photo error:', saveErr);
+      }
+
       setMediaList((prev) => [captured, ...prev]);
       showToast(
-        '📸 บันทึกภาพถ่ายประทับเวลาแล้ว!',
+        '📸 บันทึกภาพลงเครื่องเรียบร้อยแล้ว!',
         'success',
         {
-          label: 'ดูภาพ / ส่ง LINE',
+          label: 'ดูรูปภาพ',
           onClick: () => handleQuickShare(captured),
         }
       );
@@ -511,9 +528,26 @@ export default function App() {
       setIsRecording(false);
       setRecordDurationSec(0);
 
+      // Automatically save video file directly to device storage
+      try {
+        const link = document.createElement('a');
+        link.href = capturedVideo.url;
+        link.download = capturedVideo.fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+        }, 300);
+      } catch (saveErr) {
+        console.warn('Auto save video error:', saveErr);
+      }
+
       setMediaList((prev) => [capturedVideo, ...prev]);
       showToast(
-        '🎥 บันทึกวิดีโอประทับเวลาสำเร็จ!',
+        '🎥 บันทึกวิดีโอลงเครื่องเรียบร้อยแล้ว!',
         'success',
         {
           label: 'ดูวิดีโอ / ส่งแชร์',

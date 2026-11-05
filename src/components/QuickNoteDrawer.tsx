@@ -12,12 +12,12 @@ interface QuickNoteDrawerProps {
 }
 
 const ELECTRICAL_SURVEY_TYPES = [
+  'แก้ไขไฟฟ้าขัดข้อง',
   'สำรวจแนวเสาและสายไฟ',
   'ตรวจสอบหม้อแปลงไฟฟ้า',
   'งานขยายเขตไฟฟ้า',
   'ติดตั้ง/ตรวจมิเตอร์ไฟฟ้า',
   'ตรวจจุดเสี่ยงกิ่งไม้ใกล้สาย',
-  'แก้ไขเหตุฉุกเฉิน/เสาเอียง',
 ];
 
 const VOLTAGE_LEVELS = [
@@ -36,7 +36,7 @@ export const QuickNoteDrawer: React.FC<QuickNoteDrawerProps> = ({
   onRefreshGps,
 }) => {
   const [poleIdInput, setPoleIdInput] = useState(stampData.poleId || 'PEA-01');
-  const [surveyTypeInput, setSurveyTypeInput] = useState(stampData.surveyType || 'สำรวจแนวเสาและสายไฟ');
+  const [surveyTypeInput, setSurveyTypeInput] = useState(stampData.surveyType || 'แก้ไขไฟฟ้าขัดข้อง');
   const [voltageInput, setVoltageInput] = useState(stampData.voltageLevel || 'แรงสูง 22 kV');
   const [addressInput, setAddressInput] = useState(stampData.address);
   const [manualLat, setManualLat] = useState(stampData.latitude?.toString() || '');
