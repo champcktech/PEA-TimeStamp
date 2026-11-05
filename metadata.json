@@ -1,10 +1,12 @@
 {
-  "name": "TimeMark GPS Stamp Camera",
+  "name": "PEATimeStamp",
   "description": "แอปถ่ายภาพและวิดีโอประทับเวลา วันที่ พิกัด GPS (Lat/Long) และที่อยู่ลงในไฟล์โดยตรง สำหรับงานตรวจไซต์ ส่งของ บันทึกเวลา และหลักฐานหน้างาน",
   "requestFramePermissions": [
     "camera",
     "microphone",
     "geolocation"
   ],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
